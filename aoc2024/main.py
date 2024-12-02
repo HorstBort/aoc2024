@@ -1,8 +1,11 @@
 import importlib
 from types import ModuleType
 
+import keyring
+
 import typer
 
+from rich.prompt import Prompt
 
 days = range(1, 26)
 
@@ -21,6 +24,14 @@ app = typer.Typer()
 
 @app.command()
 def run(day: int, part: int, test: bool = False):
+    cookie = keyring.get_password("aoc2024", "session_cookie")
+    if cookie is None:
+        cookie = Prompt.ask(
+            "Enter session cookie to automatically download input files"
+        )
+        if cookie.strip():
+            keyring.set_password("aoc2024", "session_cookie", cookie)
+
     m = mods[day - 1]
     if part == 1:
         print(m.part1(test))  # pyright: ignore[reportAny]
