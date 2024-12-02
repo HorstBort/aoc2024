@@ -1,0 +1,50 @@
+[project]
+name = "aoc2024"
+dynamic = ["version"]
+description = ""
+authors = [{ name = "Hauke Müntinga", email = "horst+gitlab@mailbox.org" }]
+
+requires-python = ">=3.11,<3.13"
+
+dependencies = [
+  "pytest-cov>=6.0.0",
+  "pytest>=8.3.4",
+  "typer>=0.14.0",
+  "pytest-sugar>=1.0.0",
+  "requests>=2.32.3",
+  "pytest-subtests>=0.13.1",
+]
+
+[tool.uv]
+dev-dependencies = ["pip-licenses"]
+
+[project.scripts]
+aoc2024 = "aoc2024.main:app"
+
+[project.gui-scripts]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = ["__about__.py", "aoc2024"]
+exclude = []
+
+[tool.hatch.version]
+path = "__about__.py"
+
+[tool.basedpyright]
+
+
+[tool.ruff]
+
+[tool.coverage.run]
+dynamic_context = "test_function"
+
+[tool.coverage.html]
+show_contexts = true
+
+[tool.pip-licenses]
+with-urls = true
+format = "markdown"
