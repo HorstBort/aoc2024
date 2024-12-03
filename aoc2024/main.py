@@ -3,6 +3,8 @@ from types import ModuleType
 
 import keyring
 
+import pyperclip
+
 import typer
 
 from rich.prompt import Prompt
@@ -34,9 +36,17 @@ def run(day: int, part: int, test: bool = False):
 
     m = mods[day - 1]
     if part == 1:
-        print(m.part1(test))  # pyright: ignore[reportAny]
+        res = m.part1(test)  # pyright: ignore[reportAny]
     elif part == 2:
-        print(m.part2(test))  # pyright: ignore[reportAny]
+        res = m.part2(test)  # pyright: ignore[reportAny]
+    else:
+        print("1...2...many, right?")
+        raise typer.Exit()
+
+    print(f"Result for day {day}, part {part}: {res}")
+    if not test:
+        pyperclip.copy(f"{res}")  # pyright: ignore[reportUnknownMemberType]
+        print("(copied to clipboard)")
 
 
 @app.callback(invoke_without_command=True)
