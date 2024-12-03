@@ -17,6 +17,7 @@ for ii in days:
 TEST_RESULTS = {
     1: (11, 31),
     2: (2, 4),
+    3: (161, 48),
 }
 
 
