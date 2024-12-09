@@ -53,4 +53,49 @@ def part1(test: bool = False, part2: bool = False):
 
 
 def part2(test: bool = False):
-    return part1(test, True)
+    if test:
+        input = test_input
+    else:
+        input = get_input(DAY)
+    as_int = list(map(int, input.strip()))
+
+    files = as_int[::2]
+    free = as_int[1::2]
+
+    fragmented: list[int | None] = []
+    files_: list[tuple[int, int, int]] = []
+    free_: list[tuple[int, int]] = []
+    pos = 0
+    for file_id, (file_length, free) in enumerate(
+        zip_longest(files, free, fillvalue=0)
+    ):
+        fragmented.extend([file_id] * file_length + [None] * free)
+        files_.append((file_id, pos, file_length))
+        free_.append((pos + file_length, free))
+        pos += file_length + free
+
+    for file_id, pos, file_length in reversed(files_):
+        # print(free_)
+        idx, (next_free_pos, next_free_len) = next(
+            ((ii, (p, le)) for ii, (p, le) in enumerate(free_) if le >= file_length),
+            (None, (None, None)),
+        )
+        if (
+            next_free_pos is not None
+            and next_free_len is not None
+            and next_free_pos < pos
+        ):
+            fragmented[next_free_pos : next_free_pos + file_length] = [
+                file_id
+            ] * file_length
+            fragmented[pos : pos + file_length] = [None] * file_length
+            free_[idx] = (next_free_pos + file_length, next_free_len - file_length)
+        # print(file_id, pos, file_length, idx, next_free_pos, next_free_len)
+
+        if test:
+            print("".join(str(ii) if ii is not None else "." for ii in fragmented))
+        # else:
+        #     print(file_id, len(files_))
+    checksum = sum(ii * v for ii, v in enumerate(fragmented) if v is not None)
+    # print("".join(f" {ii} " if ii is not None else "." for ii in fragmented))
+    return checksum
