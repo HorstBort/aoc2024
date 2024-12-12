@@ -1,4 +1,3 @@
-from logging import currentframe
 from pathlib import Path
 import time
 from rich import print
@@ -61,6 +60,7 @@ class Garden:
         self._fences: dict[tuple[str, Area], list[Point]] = dict()
         self._current: Point | None = None
         self._fence: dict[Point, str] = dict()
+        self._discarded: set[Point] = set()
 
     @property
     def areas(self):
@@ -75,6 +75,57 @@ class Garden:
     def cost(self):
         return sum(a * f for _, a, f in self.fences)
 
+    @property
+    def cost_discount(self):
+        def dist(p1: Point, p2: Point):
+            return abs(p1[0] - p2[0]) ** 2 + abs(p1[1] - p2[1]) ** 2
+
+        cost: list[tuple[str, int]] = []
+        for (m, area), fence in self._fences.items():
+            start = sorted(fence)[0]
+            horst: set[Point] = set()
+            edges: set[Point] = set()
+            current = start
+            while current not in horst:
+                ii, jj = current
+                next_candidates = sorted(
+                    (
+                        (ii + bla, jj + blub)
+                        for bla, blub in [
+                            (-2, 0),
+                            (-1, 1),
+                            (0, 2),
+                            (1, 1),
+                            (2, 0),
+                            (1, -1),
+                            (0, -2),
+                            (-1, -1),
+                        ]
+                        if (ii + bla, jj + blub) in fence
+                        and (ii + bla // 2, jj + bla // 2) not in area
+                        and (ii + bla, jj + blub) not in horst
+                    ),
+                    key=lambda x: dist(current, x),
+                )
+                next_pos = next(
+                    iter(next_candidates),
+                    None,
+                )
+                if next_pos is None:
+                    break
+                if next_pos[0] == ii or next_pos[1] == jj:
+                    self._discarded.add(next_pos)
+                else:
+                    edges.add(next_pos)
+                print(
+                    # f"m: {m}, current: {current}, next cand: {next_candidates},\nnext: {next_pos}, edges: {edges}"
+                    f"m: {m}, current: {current}, next: {next_pos}, edges: {edges}, {len(edges)}"
+                )
+                current = next_pos
+                horst.add(current)
+            cost.append((m, len(area) * len(edges)))
+        return cost
+
     def __rich__(self):
         def render_pos(ii: int, jj: int):
             style = "black"
@@ -87,7 +138,10 @@ class Garden:
                 bla = m
             elif (ii, jj) in self._fence:
                 bla = self._fence[(ii, jj)]
-                style = "white"
+                if (ii, jj) in self._discarded:
+                    style = "red"
+                else:
+                    style = "white"
             else:
                 bla = m
 
@@ -105,7 +159,9 @@ class Garden:
                 title="Map",
             ),
             Panel(
-                Pretty(self.cost),
+                # Pretty((self.cost, self.cost_discount)),
+                Pretty((self.cost)),
+                # f"{self.cost}",
                 title="Cost",
             ),
         )
@@ -184,8 +240,10 @@ def part1(test: bool = False, discount: bool = False):
     with Live(g, refresh_per_second=5):
         g.explore(slow=test)
         for m, a in g.areas:
-            g.build_fence(m, a, slow=test)
-            # break
+            if m == "I":
+                g.build_fence(m, a, slow=test)
+    print(g.cost_discount)
+    print(g)
     return g.cost
 
 
