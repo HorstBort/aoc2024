@@ -8,6 +8,8 @@ from rich import print
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
+from rich.progress import Progress
+from rich.table import Table
 
 from aoc2024.get_input import get_input
 
@@ -26,8 +28,6 @@ p=2,4 v=2,-3
 p=9,5 v=-3,-3
 """.strip()
 
-test_input_2 = """
-""".strip()
 
 DAY = int(Path(__file__).stem[3:])
 
@@ -49,9 +49,22 @@ class Robot:
         return Robot(ii, (p1, p2), (v1, v2))
 
 
+test_input_2 = """
+p=4,3 v=-1,-0
+p=5,2 v=-0,1
+p=2,4 v=0,-0
+p=6,4 v=0,0
+""".strip()
+
+test_input_2 = test_input
+
+
 def part1(test: bool = False, part2: bool = False):
     if test:
-        input = test_input
+        if not part2:
+            input = test_input
+        else:
+            input = test_input_2
     else:
         input = get_input(DAY)
 
@@ -74,8 +87,18 @@ def part1(test: bool = False, part2: bool = False):
             )
             for ii in range(s_y)
         ]
+        left = [r for r in robots if r.pos[0] < split]
+        right = [r for r in robots if r.pos[0] > split]
 
-        return Panel("\n".join(lines))
+        left_sym = {(split - r.pos[0], r.pos[1]) for r in left}
+        right_sym = {(r.pos[0] - split, r.pos[1]) for r in right}
+
+        t = Table.grid()
+        t.add_row(
+            Panel("\n".join(lines)),
+            Panel(f"{left_sym}, {right_sym}"),
+        )
+        return t
 
     if not part2:
         secs = 100
@@ -106,9 +129,29 @@ def part1(test: bool = False, part2: bool = False):
             res *= nr_r
     else:
         lay = Layout()
+        prog = Progress()
+        A = 100000000000000
+        t = prog.add_task("Total", total=A)
+        lay.split_column(Layout(Panel(prog), size=3), Layout(name="bort"))
         with Live(lay):
-            for _ in range(100):
-                lay.update(print_grid(robots))
+            for ii in range(A):
+                prog.update(t, completed=ii)
+                min_x = min(r.pos[0] for r in robots)
+                max_x = max(r.pos[0] for r in robots)
+                split = min_x + (max_x - min_x) // 2
+
+                left = [r for r in robots if r.pos[0] < split]
+                right = [r for r in robots if r.pos[0] > split]
+
+                sym = {(split - r.pos[0], r.pos[1]) for r in left} == {
+                    (r.pos[0] - split, r.pos[1]) for r in right
+                }
+
+                if sym:
+                    lay["bort"].update(print_grid(robots))
+                    time.sleep(1)
+                    break
+
                 robots = [
                     Robot(
                         r.uid,
@@ -120,7 +163,6 @@ def part1(test: bool = False, part2: bool = False):
                     )
                     for r in robots
                 ]
-                time.sleep(1)
         res = None
 
     return res
