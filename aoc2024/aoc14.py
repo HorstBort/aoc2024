@@ -50,8 +50,9 @@ class Robot:
 
 
 test_input_2 = """
-p=4,3 v=-1,-0
-p=5,2 v=-0,1
+p=4,2 v=-0,-0
+p=3,3 v=-0,-0
+p=5,3 v=-0,0
 p=2,4 v=0,-0
 p=6,4 v=0,0
 """.strip()
@@ -87,16 +88,16 @@ def part1(test: bool = False, part2: bool = False):
             )
             for ii in range(s_y)
         ]
-        left = [r for r in robots if r.pos[0] < split]
-        right = [r for r in robots if r.pos[0] > split]
-
-        left_sym = {(split - r.pos[0], r.pos[1]) for r in left}
-        right_sym = {(r.pos[0] - split, r.pos[1]) for r in right}
+        # left = [r for r in robots if r.pos[0] < split]
+        # right = [r for r in robots if r.pos[0] > split]
+        #
+        # left_sym = {(split - r.pos[0], r.pos[1]) for r in left}
+        # right_sym = {(r.pos[0] - split, r.pos[1]) for r in right}
 
         t = Table.grid()
         t.add_row(
             Panel("\n".join(lines)),
-            Panel(f"{left_sym}, {right_sym}"),
+            # Panel(f"{left_sym}, {right_sym}"),
         )
         return t
 
@@ -130,27 +131,55 @@ def part1(test: bool = False, part2: bool = False):
     else:
         lay = Layout()
         prog = Progress()
-        A = 100000000000000
-        t = prog.add_task("Total", total=A)
+        loop = next(
+            ii
+            for ii in range(1, 1000000000)
+            if all(
+                (
+                    (r.pos[0] + ii * r.vel[0]) % s_x,
+                    (r.pos[1] + ii * r.vel[1]) % s_y,
+                )
+                == (r.pos[0], r.pos[1])
+                for r in robots
+            )
+        )
+        t = prog.add_task("Total", total=loop + 1)
         lay.split_column(Layout(Panel(prog), size=3), Layout(name="bort"))
         with Live(lay):
-            for ii in range(A):
+            ttl = 3
+            treetop = [
+                {(ii, jj)}
+                | {(ii + a * n, jj + n) for n in range(1, ttl) for a in [-1, 1]}
+                for ii in range(ttl, s_x - ttl)
+                for jj in range(ttl, s_y - ttl)
+            ]
+            known_hashes: set[int] = set()
+            for ii in range(loop):
+                h = hash(frozenset((r.uid, r.pos) for r in robots))
+                if h in known_hashes:
+                    raise Exception(robots, ii)
+                known_hashes.add(h)
                 prog.update(t, completed=ii)
-                min_x = min(r.pos[0] for r in robots)
-                max_x = max(r.pos[0] for r in robots)
-                split = min_x + (max_x - min_x) // 2
+                # min_x = min(r.pos[0] for r in robots)
+                # max_x = max(r.pos[0] for r in robots)
+                # split = min_x + (max_x - min_x) // 2
+                #
+                # left = [r for r in robots if r.pos[0] < split]
+                # right = [r for r in robots if r.pos[0] > split]
+                #
+                # sym = {(split - r.pos[0], r.pos[1]) for r in left} == {
+                #     (r.pos[0] - split, r.pos[1]) for r in right
+                # }
 
-                left = [r for r in robots if r.pos[0] < split]
-                right = [r for r in robots if r.pos[0] > split]
+                # top_found = False
+                top_found = any(tt < {r.pos for r in robots} for tt in treetop)
 
-                sym = {(split - r.pos[0], r.pos[1]) for r in left} == {
-                    (r.pos[0] - split, r.pos[1]) for r in right
-                }
+                # raise Exception(treetop)
 
-                if sym:
+                # if sym or top_found:
+                if top_found:
                     lay["bort"].update(print_grid(robots))
-                    time.sleep(1)
-                    break
+                    time.sleep(2)
 
                 robots = [
                     Robot(
