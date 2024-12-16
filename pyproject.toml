@@ -17,6 +17,7 @@ dependencies = [
   "pyperclip>=1.9.0",
   "rich>=13.9.4",
   "loguru>=0.7.2",
+  "readchar>=4.2.1",
 ]
 
 [tool.uv]
