@@ -149,6 +149,7 @@ class Maze:
     paths: list[PathNode] | None = None
     dead_ends: set[Point] | None = None
     seen: dict[PathNode, int] | None = None
+    seen_pos: set[Point] | None = None
 
     @classmethod
     def from_str(cls, s: str):
@@ -237,16 +238,18 @@ class Maze:
             self.dead_ends = set()
         if self.seen is None:
             self.seen = dict()
+        if self.seen_pos is None:
+            self.seen_pos = set()
         if parent in self.seen and self.seen[parent] < parent.cost:
-            time.sleep(3)
             return
         self.seen[parent] = parent.cost
+        self.seen_pos.add(parent.pos)
         if parent.pos == self.finish:
             self.best = (
                 parent.cost if self.best is None else min(self.best, parent.cost)
             )
             self.paths.append(parent)
-            time.sleep(3)
+            self.paths.sort(key=lambda x: x.cost)
             # print("Bort")
             # print(Panel(f"{self.best}, {[p.cost for p in self.paths]}"))
             return
@@ -287,16 +290,16 @@ class Maze:
                     title="Results",
                 ),
                 Panel(f"depth: {self.depth}", title="Status"),
-                Panel(
-                    f"seen: {len(self.seen) if self.seen is not None else 0}",
-                    title="Seen",
-                ),
+                # Panel(
+                #     f"seen: {len(self.seen) if self.seen is not None else 0}",
+                #     title="Seen",
+                # ),
                 Panel(
                     (
                         f"pos: {self.current.pos if self.current is not None else None}\n"
                         f"current: {self.current.cost if self.current is not None else None}\n"
-                        f"seen: {self.seen[self.current] if self.current is not None  and self.seen is not None else None}\n"
-                        f"Arsch: {[v for v in self.seen.keys() if v.pos == (7, 15)] if self.seen is not None else None}\n"
+                        # f"seen: {self.seen[self.current] if self.current is not None  and self.seen is not None else None}\n"
+                        # f"Arsch: {[v for v in self.seen.keys() if v.pos == (7, 15)] if self.seen is not None else None}\n"
                     ),
                     title="Seen cost",
                 ),
@@ -312,10 +315,6 @@ class Maze:
 
     def render_path(self):
         current = self.current
-        if self.seen is not None:
-            seen: dict[PathNode, int] = {k: v for k, v in self.seen.items()}
-        else:
-            seen = dict()
 
         def render_pos(ii: int, jj: int):
             if (ii, jj) in self.walls:
@@ -344,7 +343,7 @@ class Maze:
                         c = f"color({nn + 153})"
                         # c = "cyan3"
                         return f"[{c}]¤[/]"
-            elif self.seen is not None and any((ii, jj) == p.pos for p in seen):
+            elif self.seen_pos is not None and (ii, jj) in self.seen_pos:
                 return "[blue]+[/]"
 
             return "."
