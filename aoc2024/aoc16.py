@@ -132,6 +132,10 @@ class PathNode:
     def cost(self) -> int:
         return self._cost
 
+    @override
+    def __hash__(self) -> int:
+        return hash((self.pos, self.dir))
+
 
 @dataclass
 class Maze:
@@ -144,7 +148,7 @@ class Maze:
     best: int | None = None
     paths: list[PathNode] | None = None
     dead_ends: set[Point] | None = None
-    seen: set[Point] | None = None
+    seen: dict[PathNode, int] | None = None
 
     @classmethod
     def from_str(cls, s: str):
@@ -194,9 +198,11 @@ class Maze:
         np = {p for p, _ in self.next_positions(de, Direction.UP)}
         while len(np) == 1:
             for nn in np:
-                np = {
-                    p for p, _ in self.next_positions(nn, Direction.UP)
-                } - dead_corridor
+                np = (
+                    {p for p, _ in self.next_positions(nn, Direction.UP)}
+                    - dead_corridor
+                    - {self.finish, self.start}
+                )
                 if len(np) == 1:
                     dead_corridor.add(nn)
         self.dead_ends = self.dead_ends | dead_corridor
@@ -213,7 +219,7 @@ class Maze:
         y, x = pos
         return [
             ((ii + y, jj + x), d)
-            for (ii, jj), d in bort
+            for (ii, jj), d in reversed(bort)
             if (ii + y, jj + x) not in self.walls
         ]
 
@@ -230,13 +236,17 @@ class Maze:
         if self.dead_ends is None:
             self.dead_ends = set()
         if self.seen is None:
-            self.seen = set()
-        self.seen.add(parent.pos)
+            self.seen = dict()
+        if parent in self.seen and self.seen[parent] < parent.cost:
+            time.sleep(3)
+            return
+        self.seen[parent] = parent.cost
         if parent.pos == self.finish:
             self.best = (
                 parent.cost if self.best is None else min(self.best, parent.cost)
             )
             self.paths.append(parent)
+            time.sleep(3)
             # print("Bort")
             # print(Panel(f"{self.best}, {[p.cost for p in self.paths]}"))
             return
@@ -248,11 +258,11 @@ class Maze:
             if p not in parent.pos_path and p not in self.dead_ends
         ]
         if test or parent.pos == self.finish or len(parent.path) % 100 == 0:
-            time.sleep(0.2)
+            time.sleep(0.1)
         children = parent.children
         for p, d in next_pos:
             node = PathNode(parent, p, d, [])
-            if self.best is None or node.cost < self.best:
+            if self.best is None or node.cost <= self.best:
                 self.step(node, test, depth=depth + 1)
                 children.append(node)
 
@@ -273,30 +283,45 @@ class Maze:
         lay["move"].update(
             Group(
                 Panel(
-                    f"finish: {self.finish}\ndist: {dist}\nbest: {self.best}\ncost: {[p.cost for p in self.paths] if self.paths is not None else []}",
+                    f"finish: {self.finish}\ndist: {dist}\nbest: {self.best}\ncurrent: {self.current.cost if self.current is not None else None}\ncost: {[p.cost for p in self.paths] if self.paths is not None else []}",
                     title="Results",
                 ),
                 Panel(f"depth: {self.depth}", title="Status"),
                 Panel(
-                    Pretty(
-                        sorted(self.dead_ends) if self.dead_ends is not None else ""
-                    ),
-                    title="dead",
+                    f"seen: {len(self.seen) if self.seen is not None else 0}",
+                    title="Seen",
                 ),
+                Panel(
+                    (
+                        f"pos: {self.current.pos if self.current is not None else None}\n"
+                        f"current: {self.current.cost if self.current is not None else None}\n"
+                        f"seen: {self.seen[self.current] if self.current is not None  and self.seen is not None else None}\n"
+                        f"Arsch: {[v for v in self.seen.keys() if v.pos == (7, 15)] if self.seen is not None else None}\n"
+                    ),
+                    title="Seen cost",
+                ),
+                # Panel(
+                #     Pretty(
+                #         sorted(self.dead_ends) if self.dead_ends is not None else ""
+                #     ),
+                #     title="dead",
+                # ),
             )
         )
         return lay
 
     def render_path(self):
         current = self.current
+        if self.seen is not None:
+            seen: dict[PathNode, int] = {k: v for k, v in self.seen.items()}
+        else:
+            seen = dict()
 
         def render_pos(ii: int, jj: int):
             if (ii, jj) in self.walls:
                 return "[bright_black]#[/]"
             elif (ii, jj) == self.start:
                 return "[yellow]S[/]"
-            elif (ii, jj) == self.finish:
-                return "[green]E[/]"
             elif self.dead_ends is not None and (ii, jj) in self.dead_ends:
                 return "[red]x[/]"
             elif path is not None and current is not None and (ii, jj) in path:
@@ -306,14 +331,20 @@ class Maze:
                     col = "magenta"
                 d = dir_str[path[(ii, jj)]]
                 return f"[{col}]{d}[/]"
-            elif self.paths is not None and self.paths:
+            elif (ii, jj) == self.finish:
+                return "[green]E[/]"
+            elif (
+                self.paths is not None
+                and self.paths
+                and any((ii, jj) in bort.pos_path for bort in self.paths)
+            ):
                 for nn, bort in enumerate(self.paths):
-                    pos = {pp.pos for pp in bort.path}
+                    pos = bort.pos_path
                     if (ii, jj) in pos:
                         c = f"color({nn + 153})"
                         # c = "cyan3"
                         return f"[{c}]¤[/]"
-            elif self.seen is not None and (ii, jj) in self.seen:
+            elif self.seen is not None and any((ii, jj) == p.pos for p in seen):
                 return "[blue]+[/]"
 
             return "."
@@ -363,25 +394,27 @@ def part1(test: bool = False, part2: bool = False):
 
     start = PathNode(None, maze.start, Direction.RIGHT, [])
 
-    with Live(maze):
+    with Live(maze, refresh_per_second=10 if test else 1):
         dead_ends = maze.find_dead_ends()
         maze.dead_ends = dead_ends
-        time.sleep(0.2)
+        time.sleep(0.1)
         for de in dead_ends:
             maze.fill_dead_corridor(de)
             if test:
-                time.sleep(0.2)
+                time.sleep(0.1)
         maze.step(start, test)
+        maze.current = None
+        time.sleep(5)
     # maze.step(start, lay["wh"], lay["move"], test)
 
     paths = [p for p in start.flat if p.pos == maze.finish]
-    print(len(paths))
-    print([len(p.path) for p in paths])
-    print([p.cost for p in paths])
-    try:
-        return min(p.cost for p in paths)
-    except:
-        pass
+    cost_min = min(p.cost for p in paths)
+    if not part2:
+        return cost_min
+    else:
+        return len(
+            {p for path in paths if path.cost == cost_min for p in path.pos_path}
+        )
 
 
 def part2(test: bool = False):
