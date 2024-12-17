@@ -146,14 +146,15 @@ def part1(test: bool = False, part2: bool = False):
         t = prog.add_task("Total", total=loop + 1)
         lay.split_column(Layout(Panel(prog), size=3), Layout(name="bort"))
         with Live(lay):
-            ttl = 3
+            ttl = 5
             treetop = [
                 {(ii, jj)}
-                | {(ii + a * n, jj + n) for n in range(1, ttl) for a in [-1, 1]}
-                for ii in range(ttl, s_x - ttl)
-                for jj in range(ttl, s_y - ttl)
+                | {(ii + a * n, jj + n) for n in range(1, ttl) for a in [-1, 0, 1]}
+                for ii in range(ttl, s_x - ttl + 1)
+                for jj in range(0, s_y - ttl + 1)
             ]
             known_hashes: set[int] = set()
+            res = None
             for ii in range(loop):
                 h = hash(frozenset((r.uid, r.pos) for r in robots))
                 if h in known_hashes:
@@ -172,7 +173,7 @@ def part1(test: bool = False, part2: bool = False):
                 # }
 
                 # top_found = False
-                top_found = any(tt < {r.pos for r in robots} for tt in treetop)
+                top_found = any(tt <= {r.pos for r in robots} for tt in treetop)
 
                 # raise Exception(treetop)
 
@@ -180,6 +181,8 @@ def part1(test: bool = False, part2: bool = False):
                 if top_found:
                     lay["bort"].update(print_grid(robots))
                     time.sleep(2)
+                    res = ii
+                    break
 
                 robots = [
                     Robot(
@@ -192,7 +195,6 @@ def part1(test: bool = False, part2: bool = False):
                     )
                     for r in robots
                 ]
-        res = None
 
     return res
 
