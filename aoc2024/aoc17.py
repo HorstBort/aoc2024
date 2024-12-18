@@ -93,7 +93,7 @@ class Computer:
     def adv(self, value: int):
         value = self._combo(value)
         self._debug = "adv", value
-        self._registers["A"] = self._registers["A"] // 2**value
+        self._registers["A"] = self._registers["A"] >> value
         self.ptr += 2
 
     def bxl(self, value: int):
@@ -126,13 +126,15 @@ class Computer:
         self.ptr += 2
 
     def bdv(self, value: int):
+        value = self._combo(value)
         self._debug = "bdv", value
-        self._registers["B"] = self._registers["A"] // 2**value
+        self._registers["B"] = self._registers["A"] >> value
         self.ptr += 2
 
     def cdv(self, value: int):
+        value = self._combo(value)
         self._debug = "cdv", value
-        self._registers["C"] = self._registers["A"] // 2**value
+        self._registers["C"] = self._registers["A"] >> value
         self.ptr += 2
 
     @property
