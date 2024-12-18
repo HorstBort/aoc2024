@@ -1,19 +1,10 @@
 from pathlib import Path
-import time
 from typing import final
 
 import readchar
 
-from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import (
-    BarColumn,
-    MofNCompleteColumn,
-    Progress,
-    SpinnerColumn,
-    TimeElapsedColumn,
-)
 from rich.table import Table
 
 from aoc2024.get_input import get_input
@@ -191,7 +182,7 @@ def part1(test: bool = False):
     program = program.split(":")[1]
     c = Computer()
     with Live(c):
-        c.run_program(program, dict(zip(["A", "B", "C"], register_values)))
+        c.run_program(program, dict(zip(["A", "B", "C"], register_values)), debug=True)
     return c.output
 
 
@@ -201,29 +192,34 @@ def part2(test: bool = False):
     else:
         input = get_input(DAY)
 
-    registers, program = input.strip().split("\n\n")
+    _, program = input.strip().split("\n\n")
     program = program.split(":")[1].strip()
-    c = Computer()
 
-    lay = Layout(name="root")
+    def bort(a: int):
+        b = a % 8
+        b = b ^ 1
+        c = a >> b
+        b = b ^ c
+        a = a >> 3
+        b = b ^ 6
+        out = b % 8
 
-    prog = Progress(
-        SpinnerColumn(),
-        TimeElapsedColumn(),
-        MofNCompleteColumn(),
-    )
-    t = prog.add_task("Wurst", total=None)
+        return a, out
 
-    lay.split_column(
-        Layout(Panel(prog, title="Progress"), size=3),
-        Panel(c, title="Computer"),
-    )
-    with Live(lay):
-        ii = 0
-        while not c.output == program:
-            prog.update(t, completed=ii)
-            registers = {"A": ii, "B": 0, "C": 0}
-            c.run_program(program, registers, self_replicate=True)
-            ii += 1
-        prog.remove_task(t)
-    return ii - 1
+    target = list(map(int, program.split(",")))
+
+    bla: list[list[int]] = []
+    for ii, t in enumerate(reversed(target)):
+        poss: list[int] = [0] if not bla else bla[ii - 1]
+        ranges = [(8 * p, 8 * (p + 1)) for p in poss]
+        bla.append(
+            [
+                jj
+                for r1, r2 in ranges
+                for jj in range(r1, r2)
+                if bort(jj)[1] == t and (not poss or bort(jj)[0] in poss)
+            ]
+        )
+
+    print(target)
+    return min(bla[-1])
