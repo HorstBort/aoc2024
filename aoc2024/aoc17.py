@@ -4,8 +4,16 @@ from typing import final
 
 import readchar
 
+from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Table
 
 from aoc2024.get_input import get_input
@@ -18,6 +26,14 @@ Register C: 0
 Program: 0,1,5,4,3,0
 """
 
+test_input_2 = """
+Register A: 2024
+Register B: 0
+Register C: 0
+
+Program: 0,3,5,4,3,0
+"""
+
 
 DAY = int(Path(__file__).stem[3:])
 
@@ -28,27 +44,38 @@ Point = tuple[int, int]
 class Computer:
     ptr: int = 0
 
-    def __init__(self, reg_A: int, reg_B: int, reg_C: int) -> None:
-        self._registers = {"A": reg_A, "B": reg_B, "C": reg_C}
+    def __init__(self) -> None:
+        self._registers: dict[str, int] = {"A": 0, "B": 0, "C": 0}
         self._output: list[int] = []
         self._program = []
         self._cycle = 0
         self._debug: tuple[str, int] = ("", 0)
 
-    def run_program(self, program: str, debug: bool = False):
+    def run_program(
+        self,
+        program: str,
+        registers: dict[str, int],
+        debug: bool = False,
+        self_replicate: bool = False,
+    ):
+        self._registers = registers
+        self._output = []
         self._cycle = 0
+        self.ptr = 0
         bla = list(map(int, program.strip().split(",")))
         ops, values = bla[::2], bla[1::2]
         self._program = list(zip(ops, values))
-        while self.ptr < len(bla) - 1:
+        while self.ptr < len(bla) - 1 and (
+            not self_replicate or self.output == program[: len(self.output)]
+        ):
             op = bla[self.ptr]
             v = bla[self.ptr + 1]
             if debug:
                 c = readchar.readkey()
                 if c == "q":
                     raise Exception("Aborted")
-            else:
-                time.sleep(0.1)
+            # else:
+            #     time.sleep(0.001)
             self.instructions[op](self, v)
             self._cycle += 1
 
@@ -153,23 +180,50 @@ class Computer:
     }
 
 
-def part1(test: bool = False, part2: bool = False):
+def part1(test: bool = False):
     if test:
-        if not part2:
-            input = test_input
-        else:
-            input = test_input
+        input = test_input
     else:
         input = get_input(DAY)
 
     registers, program = input.strip().split("\n\n")
     register_values = [int(line.split(":")[1]) for line in registers.splitlines()]
     program = program.split(":")[1]
-    c = Computer(*register_values)
+    c = Computer()
     with Live(c):
-        c.run_program(program, debug=True)
+        c.run_program(program, dict(zip(["A", "B", "C"], register_values)))
     return c.output
 
 
 def part2(test: bool = False):
-    return part1(test, part2=True)
+    if test:
+        input = test_input_2
+    else:
+        input = get_input(DAY)
+
+    registers, program = input.strip().split("\n\n")
+    program = program.split(":")[1].strip()
+    c = Computer()
+
+    lay = Layout(name="root")
+
+    prog = Progress(
+        SpinnerColumn(),
+        TimeElapsedColumn(),
+        MofNCompleteColumn(),
+    )
+    t = prog.add_task("Wurst", total=None)
+
+    lay.split_column(
+        Layout(Panel(prog, title="Progress"), size=3),
+        Panel(c, title="Computer"),
+    )
+    with Live(lay):
+        ii = 0
+        while not c.output == program:
+            prog.update(t, completed=ii)
+            registers = {"A": ii, "B": 0, "C": 0}
+            c.run_program(program, registers, self_replicate=True)
+            ii += 1
+        prog.remove_task(t)
+    return ii - 1
