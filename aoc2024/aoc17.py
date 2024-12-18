@@ -62,8 +62,11 @@ class Computer:
             table_program.add_row(">" if ii * 2 == self.ptr else "", str(code), str(op))
 
         output = ",".join(map(str, self._output))
-        panel_outout = Panel(f"Cycle: {self._cycle}\nOutput: {output}", title="Output")
-        panel_debug = Panel(f"op: {self._debug[0]}\nv: {self._debug[1]}", title="Debug")
+        panel_outout = Panel(f"{output}", title="Output")
+        panel_debug = Panel(
+            f"cycle: {self._cycle}\nop: {self._debug[0]}\nv: {self._debug[1]}",
+            title="Debug",
+        )
 
         t.add_row(
             Panel(table_register, title="Registers"),
@@ -83,7 +86,7 @@ class Computer:
         elif value == 6:
             return self._registers["C"]
         elif value == 7:
-            return value
+            raise ValueError("Reserved")
         else:
             raise ValueError("Corrupt address")
 
