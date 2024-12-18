@@ -2,6 +2,8 @@ from pathlib import Path
 import time
 from typing import final
 
+import readchar
+
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
@@ -33,7 +35,7 @@ class Computer:
         self._cycle = 0
         self._debug: tuple[str, int] = ("", 0)
 
-    def run_program(self, program: str):
+    def run_program(self, program: str, debug: bool = False):
         self._cycle = 0
         bla = list(map(int, program.strip().split(",")))
         ops, values = bla[::2], bla[1::2]
@@ -41,8 +43,13 @@ class Computer:
         while self.ptr < len(bla) - 1:
             op = bla[self.ptr]
             v = bla[self.ptr + 1]
+            if debug:
+                c = readchar.readkey()
+                if c == "q":
+                    raise Exception("Aborted")
+            else:
+                time.sleep(0.1)
             self.instructions[op](self, v)
-            time.sleep(0.1)
             self._cycle += 1
 
     def __rich__(self):
@@ -155,7 +162,7 @@ def part1(test: bool = False, part2: bool = False):
     program = program.split(":")[1]
     c = Computer(*register_values)
     with Live(c):
-        c.run_program(program)
+        c.run_program(program, debug=True)
     return c.output
 
 
