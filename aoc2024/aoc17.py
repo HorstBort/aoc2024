@@ -106,7 +106,7 @@ class Computer:
 
     def bxc(self, value: int):
         self._debug = "bxc", value
-        self._registers["C"] = self._registers["B"] ^ self._registers["C"]
+        self._registers["B"] = self._registers["B"] ^ self._registers["C"]
         self.ptr += 2
 
     def out(self, value: int):
@@ -117,12 +117,12 @@ class Computer:
 
     def bdv(self, value: int):
         self._debug = "bdv", value
-        self._registers["B"] = self._registers["A"] // value**2
+        self._registers["B"] = self._registers["A"] // 2**value
         self.ptr += 2
 
     def cdv(self, value: int):
         self._debug = "cdv", value
-        self._registers["C"] = self._registers["A"] // value**2
+        self._registers["C"] = self._registers["A"] // 2**value
         self.ptr += 2
 
     @property
