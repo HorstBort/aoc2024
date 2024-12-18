@@ -105,6 +105,7 @@ class PathNode:
             self._pos_path = [pos]
             self._cost = 0
         else:
+            parent.children.append(self)
             self._path = parent.path + [self]
             self._pos_path = parent.pos_path + [pos]
             if direction == parent.dir:
@@ -128,6 +129,9 @@ class PathNode:
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}:<{self.pos}, {self.dir}: {self.children}>"
 
+    def __rich__(self):
+        return Pretty((self.pos, self.dir, self.children))
+
     @property
     def cost(self) -> int:
         return self._cost
@@ -135,6 +139,11 @@ class PathNode:
     @override
     def __hash__(self) -> int:
         return hash((self.pos, self.dir))
+
+    def copy(self, new_parent: Self):
+        new_node = PathNode(new_parent, self.pos, self.dir, [])
+        for ch in self.children:
+            ch.copy(new_node)
 
 
 @dataclass
@@ -150,6 +159,7 @@ class Maze:
     dead_ends: set[Point] | None = None
     seen: dict[tuple[Point, Direction], int] | None = None
     seen_pos: set[Point] | None = None
+    root: PathNode | None = None
 
     @classmethod
     def from_str(cls, s: str):
@@ -224,6 +234,7 @@ class Maze:
             ((ii + y, jj + x), d)
             for (ii, jj), d in reversed(bort)
             if (ii + y, jj + x) not in self.walls
+            and (self.dead_ends is None or (ii + y, jj + x) not in self.dead_ends)
         ]
 
     def step(
@@ -242,35 +253,50 @@ class Maze:
             self.seen = dict()
         if self.seen_pos is None:
             self.seen_pos = set()
-        key = (parent.pos, parent.dir)
-        if key in self.seen and self.seen[key] < parent.cost:
-            return
-        self.seen[key] = parent.cost
-        self.seen_pos.add(parent.pos)
-        if parent.pos == self.finish:
-            self.best = (
-                parent.cost if self.best is None else min(self.best, parent.cost)
-            )
-            self.paths.append(parent)
-            self.paths.sort(key=lambda x: x.cost)
-            # print("Bort")
-            # print(Panel(f"{self.best}, {[p.cost for p in self.paths]}"))
-            return
+        if self.root is None:
+            self.root = parent
 
         next_pos = self.next_positions(parent.pos, parent.dir)
-        next_pos = [
-            (p, d)
-            for p, d in next_pos
-            if p not in parent.pos_path and p not in self.dead_ends
-        ]
+        next_pos = [(p, d) for p, d in next_pos if p not in parent.pos_path]
         if test or parent.pos == self.finish or len(parent.path) % 100 == 0:
             time.sleep(0.1)
-        children = parent.children
         for p, d in next_pos:
             node = PathNode(parent, p, d, [])
-            if self.best is None or node.cost <= self.best:
-                self.step(node, test, depth=depth + 1)
-                children.append(node)
+            key = p, d
+            if (self.best is None or node.cost <= self.best) and (
+                key not in self.seen or node.cost <= self.seen[key]
+            ):
+                if node.pos == self.finish:
+                    self.best = (
+                        node.cost if self.best is None else min(self.best, node.cost)
+                    )
+                    self.paths.append(node)
+                    self.paths.sort(key=lambda x: x.cost)
+                    # print("Bort")
+                    # print(Panel(f"{self.best}, {[p.cost for p in self.paths]}"))
+                if key in self.seen:
+                    seen = next(
+                        iter(
+                            sorted(
+                                (
+                                    nn
+                                    for nn in self.root.flat
+                                    if (nn.pos, nn.dir) == key and nn is not node
+                                ),
+                                key=lambda x: x.cost,
+                            )
+                        )
+                    )
+                    for ch in seen.children:
+                        ch.copy(node)
+                    self.paths = [p for p in self.root.flat if p.pos == self.finish]
+                    self.paths.sort(key=lambda x: x.cost)
+                    # if len(self.paths) > 1:
+                    #     raise Exception()
+                else:
+                    self.step(node, test, depth=depth + 1)
+                self.seen[key] = node.cost
+                self.seen_pos.add(node.pos)
 
     def __rich__(self):
         prog = Progress()
@@ -292,7 +318,16 @@ class Maze:
                     f"finish: {self.finish}\ndist: {dist}\nbest: {self.best}\ncurrent: {self.current.cost if self.current is not None else None}\ncost: {[p.cost for p in self.paths] if self.paths is not None else []}",
                     title="Results",
                 ),
-                Panel(f"depth: {self.depth}", title="Status"),
+                Panel(
+                    (
+                        f"depth: {self.depth}\nsize seen: {sys.getsizeof(self.seen)/2**10/2**10: .3f}\n"
+                        f"size pos  : {sys.getsizeof(self.seen_pos)/2**10/2**10: .3f}\n"
+                        f"size paths: {sys.getsizeof(self.paths)/2**10/2**10: .3f}\n"
+                        f"size root: {sys.getsizeof(self.root)/2**10/2**10: .3f}\n"
+                        f"size self : {sys.getsizeof(self)/2**10/2**10: .3f}"
+                    ),
+                    title="Status",
+                ),
                 # Panel(
                 #     f"seen: {len(self.seen) if self.seen is not None else 0}",
                 #     title="Seen",
@@ -404,12 +439,15 @@ def part1(test: bool = False, part2: bool = False):
             maze.fill_dead_corridor(de)
             if test:
                 time.sleep(0.1)
+
         maze.step(start, test)
         maze.current = None
         time.sleep(5)
     # maze.step(start, lay["wh"], lay["move"], test)
 
-    paths = [p for p in start.flat if p.pos == maze.finish]
+    paths = maze.paths
+    if paths is None:
+        raise Exception()
     cost_min = min(p.cost for p in paths)
     if not part2:
         return cost_min
