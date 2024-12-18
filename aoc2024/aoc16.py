@@ -148,7 +148,7 @@ class Maze:
     best: int | None = None
     paths: list[PathNode] | None = None
     dead_ends: set[Point] | None = None
-    seen: dict[PathNode, int] | None = None
+    seen: dict[tuple[Point, Direction], int] | None = None
     seen_pos: set[Point] | None = None
 
     @classmethod
@@ -206,6 +206,8 @@ class Maze:
                 )
                 if len(np) == 1:
                     dead_corridor.add(nn)
+        if self.dead_ends is None:
+            self.dead_ends = set()
         self.dead_ends = self.dead_ends | dead_corridor
 
     def next_positions(self, pos: Point, dir: Direction):
@@ -240,9 +242,10 @@ class Maze:
             self.seen = dict()
         if self.seen_pos is None:
             self.seen_pos = set()
-        if parent in self.seen and self.seen[parent] < parent.cost:
+        key = (parent.pos, parent.dir)
+        if key in self.seen and self.seen[key] < parent.cost:
             return
-        self.seen[parent] = parent.cost
+        self.seen[key] = parent.cost
         self.seen_pos.add(parent.pos)
         if parent.pos == self.finish:
             self.best = (
