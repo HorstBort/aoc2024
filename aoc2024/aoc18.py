@@ -5,6 +5,9 @@ from typing import final
 from rich import print
 
 from rich.live import Live
+from rich.panel import Panel
+from rich.pretty import Pretty
+from rich.table import Table
 
 
 from aoc2024.get_input import get_input
@@ -108,8 +111,17 @@ class Grid:
     def min(self):
         return self._seen[self._exit]
 
+    @property
+    def blocked(self):
+        return self._exit not in self._seen
 
-def part1(test: bool = False):
+    def reset(self):
+        self._corrupt = []
+        self._seen = dict()
+        self._current = (0, 0)
+
+
+def part1(test: bool = False, as_part2: bool = False):
     if test:
         input = test_input
     else:
@@ -126,17 +138,46 @@ def part1(test: bool = False):
         )
     )
     grid = Grid(7 if test else 71)
-    with Live(grid):
-        grid.corrupt = corrupt[:12] if test else corrupt[:1024]
-        grid.walk(slow=test)
+    if not as_part2:
+        with Live(grid):
+            grid.corrupt = corrupt[:12] if test else corrupt[:1024]
+            grid.walk(slow=test)
+            return grid.min
+    else:
 
-    return grid.min
+        def render_status():
+            t = Table.grid()
+            t.add_row(
+                Panel(grid, title="Grid"),
+                Panel(f"{start},{next_try}, {end}", title="Status"),
+            )
+            t.add_row(
+                Panel(Pretty(tried), title="Tried"),
+            )
+            return t
+
+        start = 12 if test else 1024
+        end = len(corrupt)
+        next_try = start + (end - start) // 2
+        tried: list[tuple[int, bool]] = []
+
+        t = render_status()
+        with Live(t) as live:
+            while not start == end - 1:
+                grid.reset()
+                grid.corrupt = corrupt[:next_try]
+                grid.walk(slow=test)
+                tried.append((next_try, grid.blocked))
+                if grid.blocked:
+                    end = next_try
+                    next_try = start + (next_try - start) // 2
+                else:
+                    start = next_try
+                    next_try = next_try + (end - next_try) // 2
+                live.update(render_status())
+                time.sleep(2)
+        return corrupt[end - 1][1], corrupt[end - 1][0]
 
 
 def part2(test: bool = False):
-    if test:
-        input = test_input
-    else:
-        input = get_input(DAY)
-
-    return part1(test)
+    return part1(test, as_part2=True)
